@@ -25,43 +25,8 @@ compound_image_size = 128
 observation_size = compound_image_size * 2  # PAA reduction is used when observation size > compound_image_size
 epochs = 50
 number_of_features = 4
-batch_size = 2
+batch_size = 32
 initial_learning_rate = 0.1
-
-print("Reading in the data")
-all_subject_data = pd.read_csv("confocal_all_patient_phys_data.txt", sep="\t")
-
-print("Dropping some patients")
-all_subject_data = drop_some_subjects(all_subject_data)
-
-print("Splitting the data")
-np.random.seed(131313)  # Set a seed so random splits are the same when this script is run multiple times
-train_data, cv_data, test_data = get_data_split_up(all_subject_data, labels)
-
-print("Filling in missing values")
-train_data = fill_in_data(train_data)
-cv_data = fill_in_data(cv_data)
-test_data = fill_in_data(test_data)
-
-print("Creating the model")
-model = create_densenet(image_size=compound_image_size, number_of_channels=number_of_features*3)
-
-print("Compiling the model")
-optimizer = SGD(lr=0.01)
-model.compile(optimizer=optimizer, loss=binary_crossentropy, metrics=[binary_accuracy])
-
-print("Training the model")
-training_generator = generate_compound_image_feature_label_pairs(train_data, labels,
-                                                                 observation_size=observation_size,
-                                                                 image_size=compound_image_size,
-                                                                 batch_size=batch_size)
-validation_generator = generate_compound_image_feature_label_pairs(cv_data, labels,
-                                                                   observation_size=observation_size,
-                                                                   image_size=compound_image_size,
-                                                                   batch_size=batch_size)
-
-steps_per_epoch = calculate_steps_per_epoch(train_data, observation_size=observation_size, batch_size=batch_size)
-validation_steps_per_epoch = calculate_steps_per_epoch(cv_data, observation_size=observation_size, batch_size=batch_size)
 
 print("Reading in the data")
 all_subject_data = pd.read_csv("confocal_all_patient_phys_data.txt", sep="\t")
