@@ -22,7 +22,7 @@ from learning_rate_tracker import LearningRateTracker
 
 # Define hyperparameters
 compound_image_size = 128
-observation_size = compound_image_size * 2  # PAA reduction is used when observation size > compound_image_size
+observation_size = compound_image_size
 epochs = 50
 number_of_features = 4
 batch_size = 32
