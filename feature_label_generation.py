@@ -22,39 +22,40 @@ def generate_compound_image_feature_label_pairs(data, labels, observation_size=1
     :return: Yields a tuple (compound_images, labels) for data sets with enough data points for at least one
              observation and with labels associated with the data.
     """
-    for subject_number, subject_data in data.items():
-        # Shape: [n_observations, observation_window_length]
-        btO2_observations = create_array_with_rolling_window(subject_data["BtO2"], window_size=observation_size)
-        hr_observations = create_array_with_rolling_window(subject_data["HR"], window_size=observation_size)
-        spO2_observations = create_array_with_rolling_window(subject_data["SpO2"], window_size=observation_size)
-        artmap_observations = create_array_with_rolling_window(subject_data["artMAP"], window_size=observation_size)
+    while True:  # One epoch = one pass through this loop
+        for subject_number, subject_data in data.items():
+            # Shape: [n_observations, observation_window_length]
+            btO2_observations = create_array_with_rolling_window(subject_data["BtO2"], window_size=observation_size)
+            hr_observations = create_array_with_rolling_window(subject_data["HR"], window_size=observation_size)
+            spO2_observations = create_array_with_rolling_window(subject_data["SpO2"], window_size=observation_size)
+            artmap_observations = create_array_with_rolling_window(subject_data["artMAP"], window_size=observation_size)
 
-        btO2_observations,\
-        hr_observations,\
-        spO2_observations,\
-        artmap_observations = remove_cases_with_nan(btO2_observations, hr_observations, spO2_observations,
-                                                    artmap_observations)
+            btO2_observations,\
+            hr_observations,\
+            spO2_observations,\
+            artmap_observations = remove_cases_with_nan(btO2_observations, hr_observations, spO2_observations,
+                                                        artmap_observations)
 
-        # Skip subjects with no observations after removing observations with NaNs
-        if len(btO2_observations) == 0 or len(hr_observations) == 0 or len(spO2_observations) == 0\
-                or len(artmap_observations) == 0:
-            continue
+            # Skip subjects with no observations after removing observations with NaNs
+            if len(btO2_observations) == 0 or len(hr_observations) == 0 or len(spO2_observations) == 0\
+                    or len(artmap_observations) == 0:
+                continue
 
-        btO2_image_generator = generate_gasf_gadf_mtf_compound_images(btO2_observations, image_size=image_size,
-                                                                      batch_size=batch_size)
-        hr_image_generator = generate_gasf_gadf_mtf_compound_images(hr_observations, image_size=image_size,
-                                                                    batch_size=batch_size)
-        spO2_image_generator = generate_gasf_gadf_mtf_compound_images(spO2_observations, image_size=image_size,
-                                                                      batch_size=batch_size)
-        artmap_image_generator = generate_gasf_gadf_mtf_compound_images(artmap_observations, image_size=image_size,
+            btO2_image_generator = generate_gasf_gadf_mtf_compound_images(btO2_observations, image_size=image_size,
+                                                                          batch_size=batch_size)
+            hr_image_generator = generate_gasf_gadf_mtf_compound_images(hr_observations, image_size=image_size,
                                                                         batch_size=batch_size)
+            spO2_image_generator = generate_gasf_gadf_mtf_compound_images(spO2_observations, image_size=image_size,
+                                                                          batch_size=batch_size)
+            artmap_image_generator = generate_gasf_gadf_mtf_compound_images(artmap_observations, image_size=image_size,
+                                                                            batch_size=batch_size)
 
-        image_generators = zip(btO2_image_generator, hr_image_generator, spO2_image_generator, artmap_image_generator)
+            image_generators = zip(btO2_image_generator, hr_image_generator, spO2_image_generator, artmap_image_generator)
 
-        for btO2_image, hr_image, spO2_image, artmap_image, in image_generators:
-            compound_images = np.concatenate((btO2_image, hr_image, spO2_image, artmap_image), axis=3)
-            labels_to_yield = np.repeat(labels[subject_number], compound_images.shape[0])
-            yield (compound_images, labels_to_yield)
+            for btO2_image, hr_image, spO2_image, artmap_image, in image_generators:
+                compound_images = np.concatenate((btO2_image, hr_image, spO2_image, artmap_image), axis=3)
+                labels_to_yield = np.repeat(labels[subject_number], compound_images.shape[0])
+                yield (compound_images, labels_to_yield)
 
 
 def generate_gasf_gadf_mtf_compound_images(observations, image_size=128, batch_size=64):
