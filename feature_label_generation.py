@@ -30,6 +30,17 @@ def generate_compound_image_feature_label_pairs(data, labels, observation_size=1
         spO2_observations = create_array_with_rolling_window(subject_data["SpO2"], window_size=observation_size)
         artmap_observations = create_array_with_rolling_window(subject_data["artMAP"], window_size=observation_size)
 
+        btO2_observations,\
+        hr_observations,\
+        spO2_observations,\
+        artmap_observations = remove_cases_with_nan(btO2_observations, hr_observations, spO2_observations,
+                                                    artmap_observations)
+
+        # Skip subjects with no observations after removing observations with NaNs
+        if len(btO2_observations) == 0 or len(hr_observations) == 0 or len(spO2_observations) == 0\
+                or len(artmap_observations) == 0:
+            continue
+
         btO2_image_generator = generate_gasf_gadf_mtf_compound_images(btO2_observations, image_size=image_size,
                                                                       batch_size=batch_size)
         hr_image_generator = generate_gasf_gadf_mtf_compound_images(hr_observations, image_size=image_size,
@@ -74,21 +85,41 @@ def generate_gasf_gadf_mtf_compound_images(observations, image_size=128, batch_s
     while lower_bound < len(observations):
         observations_batch = observations[lower_bound:upper_bound]
 
-        # Generate the images for the batch and store them to return later
-        with Pool(processes=3) as pool:
-            gasf_async_result = pool.apply_async(gasf_transformer.fit_transform, (observations_batch,))
-            gadf_async_result = pool.apply_async(gadf_transformer.fit_transform, (observations_batch,))
-            mtf_async_result = pool.apply_async(mtf_transformer.fit_transform, (observations_batch,))
+        gasf = gasf_transformer.fit_transform(observations_batch)
+        gadf = gadf_transformer.fit_transform(observations_batch)
+        mtf = mtf_transformer.fit_transform(observations_batch)
 
-            gasf_async_result.wait()
-            gadf_async_result.wait()
-            mtf_async_result.wait()
-
-            yield np.stack((gasf_async_result.get(), gadf_async_result.get(), mtf_async_result.get()), axis=3)
+        yield np.stack((gasf, gadf, mtf), axis=3)
 
         lower_bound = upper_bound
         upper_bound += batch_size
         upper_bound = min(len(observations), upper_bound)
+
+
+def remove_cases_with_nan(btO2_observations, hr_observations, spO2_observations, artmap_observations):
+    """
+    :param btO2_observations:
+    :param hr_observations:
+    :param spO2_observations:
+    :param artmap_observations:
+    :return: The observations passed in as parameters, without observations where at least one of the values for one of
+             the features is a NaN. It is assumed the features are in sync (ex. when we use btO2_observations[i] we
+             use hr_observations[i] in that same training case).
+    """
+    # Logical arrays of what observations do not contain NaNs
+    btO2_observations_not_nan = ~np.isnan(btO2_observations).any(axis=1)  # axis=1 is the contents of an observation
+    hr_observations_not_nan = ~np.isnan(hr_observations).any(axis=1)
+    spO2_observations_not_nan = ~np.isnan(spO2_observations).any(axis=1)
+    artmap_observations_not_nan = ~np.isnan(artmap_observations).any(axis=1)
+
+    # Logical and between all the logical arrays to get what observations do not have any NaNs in any feature
+    observations_with_no_nans = np.logical_and(np.logical_and(np.logical_and(btO2_observations_not_nan,
+                                                                             hr_observations_not_nan),
+                                                              spO2_observations_not_nan),
+                                               artmap_observations_not_nan)
+
+    return btO2_observations[observations_with_no_nans], hr_observations[observations_with_no_nans],\
+           spO2_observations[observations_with_no_nans], artmap_observations[observations_with_no_nans]
 
 
 def calculate_steps_per_epoch(data, observation_size=128, batch_size=64):
@@ -100,5 +131,21 @@ def calculate_steps_per_epoch(data, observation_size=128, batch_size=64):
     """
     yields = 0
     for subject_number, subject_data in data.items():
-        yields += math.ceil((subject_data.shape[0] - observation_size + 1) / batch_size)
+        btO2_observations = create_array_with_rolling_window(subject_data["BtO2"], window_size=observation_size)
+        hr_observations = create_array_with_rolling_window(subject_data["HR"], window_size=observation_size)
+        spO2_observations = create_array_with_rolling_window(subject_data["SpO2"], window_size=observation_size)
+        artmap_observations = create_array_with_rolling_window(subject_data["artMAP"], window_size=observation_size)
+
+        valid_observations = 0
+        for i in range(len(btO2_observations)):
+            btO2_has_nan = np.isnan(btO2_observations[i]).any()
+            hr_has_nan = np.isnan(hr_observations[i]).any()
+            spO2_has_nan = np.isnan(spO2_observations[i]).any()
+            artmap_has_nan = np.isnan(artmap_observations[i]).any()
+
+            # A feature-label pair is generated if there were no NaNs in any of the feature observations
+            if not btO2_has_nan and not hr_has_nan and not spO2_has_nan and not artmap_has_nan:
+                valid_observations += 1
+
+        yields += math.ceil((valid_observations - observation_size + 1) / batch_size)
     return yields
