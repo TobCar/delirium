@@ -4,7 +4,6 @@
 
 from create_array_with_rolling_window import create_array_with_rolling_window
 from pyts.image import GASF, GADF, MTF
-from multiprocessing.pool import Pool
 import numpy as np
 import math
 
