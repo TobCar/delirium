@@ -1,3 +1,7 @@
+"""
+@author: Tobias Carryer
+"""
+
 from keras.callbacks import Callback
 import keras.backend as K
 
