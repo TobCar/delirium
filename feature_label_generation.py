@@ -147,5 +147,5 @@ def calculate_steps_per_epoch(data, observation_size=128, batch_size=64):
             if not btO2_has_nan and not hr_has_nan and not spO2_has_nan and not artmap_has_nan:
                 valid_observations += 1
 
-        yields += math.ceil((valid_observations - observation_size + 1) / batch_size)
+        yields += math.ceil(valid_observations / batch_size)
     return yields
