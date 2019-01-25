@@ -48,11 +48,37 @@ def assign_subject_numbers_to_splits(delirious_subject_numbers, non_delirious_su
     """
     train_subject_nums, cv_subject_nums, test_subject_nums = split_subject_numbers(delirious_subject_numbers)
     train_subject_nums2, cv_subject_nums2, test_subject_nums2 = split_subject_numbers(non_delirious_subject_numbers)
-    train_subject_nums += train_subject_nums2
-    cv_subject_nums += cv_subject_nums2
-    test_subject_nums += test_subject_nums2
+
+    # Interleaves to prevent getting stuck in local optima from only seeing one type of subject for half the epoch.
+    train_subject_nums = interleave(train_subject_nums, train_subject_nums2)
+    cv_subject_nums = interleave(cv_subject_nums, cv_subject_nums2)
+    test_subject_nums = interleave(test_subject_nums, test_subject_nums2)
 
     return train_subject_nums, cv_subject_nums, test_subject_nums
+
+
+def interleave(to_interleave, to_interleave2):
+    """
+    If to_interleave is [1,1,1] and to_interleave2 is [2,2,2,2,2] the output of this function would be [1,2,1,2,1,2,2,2]
+
+    to_interleave comes first, that is, if the two arrays are the same length then to_interleave will make up the even
+    numbered indices and to_interleave2 would make up the odd numbered indices.
+
+    :param to_interleave: Array to interleave with to_interleave2
+    :param to_interleave2: Array to interleave with to_interleave
+    :return: The arrays interleaved with each other.
+    """
+    len_to_interleave = min(len(to_interleave), len(to_interleave2))
+    interloven = [None] * (len_to_interleave * 2)  # Create array of the right length
+
+    interloven[::2] = to_interleave[:len_to_interleave]
+    interloven[1::2] = to_interleave2[:len_to_interleave]
+
+    # Only the one with the values left will have anything left to append
+    interloven += to_interleave[len_to_interleave:]
+    interloven += to_interleave2[len_to_interleave:]
+
+    return interloven
 
 
 def get_subject_data(df, subject_number):
