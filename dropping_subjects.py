@@ -9,4 +9,5 @@ def drop_some_subjects(df):
     df = df[df.subject_id != "confocal_7"]
     df = df[df.subject_id != "confocal_41"]
     df = df[df.subject_id != "confocal_48"]
+    df = df[df.subject_id != "confocal_20"]
     return df
