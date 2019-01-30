@@ -91,7 +91,7 @@ with warnings.catch_warnings():
     warnings.simplefilter("ignore")
     history = model.fit_generator(training_generator, epochs=epochs, steps_per_epoch=steps_per_epoch,
                                   validation_data=validation_generator, validation_steps=validation_steps_per_epoch,
-                                  callbacks=callbacks_list, class_weights=class_weights)
+                                  callbacks=callbacks_list, class_weight=class_weights)
 
     print("Saving the history")
     np.save("learning_rate_history.npy", lrate_tracker.learning_rates)
