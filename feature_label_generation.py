@@ -8,13 +8,14 @@ import numpy as np
 import math
 
 
-def generate_compound_image_feature_label_pairs(data, labels, observation_size=128, image_size=128, batch_size=1024):
+def generate_compound_image_feature_label_pairs(data, labels, subject_weights, observation_size=128, image_size=128, batch_size=1024):
     """
     Generate GASF-GADF-MTF compound images and pair them with the label for the image's observation period.
     This function is intended to be used with fit_generator() in Keras.
 
     :param data: Dictionary. Key: Integer. Value: Data frame of subject data.
     :param labels: Dictionary. Key: Integer. Value: Integer.
+    :param subject_weights: Dictionary. Key: Integer. Value: Float.
     :param observation_size: Size of the look back period
     :param image_size: Size of the images to generate. Must be equal to or smaller than the length of the
                        time series data in each observation.
@@ -55,7 +56,8 @@ def generate_compound_image_feature_label_pairs(data, labels, observation_size=1
             for btO2_image, hr_image, spO2_image, artmap_image, in image_generators:
                 compound_images = np.concatenate((btO2_image, hr_image, spO2_image, artmap_image), axis=3)
                 labels_to_yield = np.repeat(labels[subject_number], compound_images.shape[0])
-                yield (compound_images, labels_to_yield)
+                weights_to_yield = np.repeat(subject_weights[subject_number], compound_images.shape[0])
+                yield (compound_images, labels_to_yield, weights_to_yield)
 
 
 def generate_gasf_gadf_mtf_compound_images(observations, image_size=128, batch_size=64):

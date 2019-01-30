@@ -19,6 +19,8 @@ from labels_dictionary import labels
 from keras.callbacks import LearningRateScheduler
 from step_decay import step_decay
 from learning_rate_tracker import LearningRateTracker
+from weighing_subjects import weigh_subjects
+
 
 # Define hyperparameters
 compound_image_size = 128
@@ -38,6 +40,9 @@ print("Splitting the data")
 np.random.seed(131313)  # Set a seed so random splits are the same when this script is run multiple times
 train_data, cv_data, test_data = get_data_split_up(all_subject_data, labels)
 
+print("Calculating weights for each patient")
+subject_weights = weigh_subjects(train_data)
+
 print("Filling in missing values")
 train_data = fill_in_data(train_data)
 cv_data = fill_in_data(cv_data)
@@ -54,11 +59,11 @@ lrate_scheduler = LearningRateScheduler(step_decay)  # Learning rate is updated 
 lrate_tracker = LearningRateTracker()
 callbacks_list = [lrate_scheduler, lrate_tracker]
 
-training_generator = generate_compound_image_feature_label_pairs(train_data, labels,
+training_generator = generate_compound_image_feature_label_pairs(train_data, labels, subject_weights,
                                                                  observation_size=observation_size,
                                                                  image_size=compound_image_size,
                                                                  batch_size=batch_size)
-validation_generator = generate_compound_image_feature_label_pairs(cv_data, labels,
+validation_generator = generate_compound_image_feature_label_pairs(cv_data, labels, subject_weights,
                                                                    observation_size=observation_size,
                                                                    image_size=compound_image_size,
                                                                    batch_size=batch_size)
