@@ -9,5 +9,11 @@ def drop_some_subjects(df):
     df = df[df.subject_id != "confocal_7"]
     df = df[df.subject_id != "confocal_41"]
     df = df[df.subject_id != "confocal_48"]
-    df = df[df.subject_id != "confocal_20"]
+    df = df[df.subject_id != "confocal_1"]  # artMAP only has NaNs
+    df = df[df.subject_id != "confocal_8"]  # artMAP only has NaNs
+    df = df[df.subject_id != "confocal_12"]  # artMAP only has NaNs
+    df = df[df.subject_id != "confocal_20"]  # artMAP only has NaNs
+    df = df[df.subject_id != "confocal_21"]  # artMAP only has NaNs
+    df = df[df.subject_id != "confocal_45"]  # artMAP only has NaNs
+    df = df[df.subject_id != "confocal_54"]  # artMAP only has NaNs
     return df
