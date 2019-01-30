@@ -21,6 +21,7 @@ from learning_rate_tracker import LearningRateTracker
 from weighing_subjects import weigh_subjects
 from normalizing_data import create_min_max_scalers, normalize
 from sklearn.externals import joblib
+from sklearn.utils.class_weight import compute_class_weight
 
 
 # Define hyperparameters
@@ -53,7 +54,9 @@ for feature, scaler in scalers.items():
     filename = feature + extension
     joblib.dump(scaler, filename)
 
-print("Calculating weights for each patient")
+print("Calculating class and subject weights")
+sklearn_class_weights = compute_class_weight('balanced', [0, 1], list(labels.values()))
+class_weights = {0: sklearn_class_weights[0], 1: sklearn_class_weights[1]}
 subject_weights = weigh_subjects(train_data)
 
 print("Creating the model")
@@ -88,7 +91,7 @@ with warnings.catch_warnings():
     warnings.simplefilter("ignore")
     history = model.fit_generator(training_generator, epochs=epochs, steps_per_epoch=steps_per_epoch,
                                   validation_data=validation_generator, validation_steps=validation_steps_per_epoch,
-                                  callbacks=callbacks_list)
+                                  callbacks=callbacks_list, class_weights=class_weights)
 
     print("Saving the history")
     np.save("learning_rate_history.npy", lrate_tracker.learning_rates)
