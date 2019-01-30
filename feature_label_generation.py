@@ -80,8 +80,8 @@ def generate_gasf_gadf_mtf_compound_images(observations, image_size=128, batch_s
     if len(observations) == 0:
         raise ValueError("Observations cannot be empty.")
 
-    gasf_transformer = GASF(image_size)
-    gadf_transformer = GADF(image_size)
+    gasf_transformer = GASF(image_size, scale=None)
+    gadf_transformer = GADF(image_size, scale=None)
     mtf_transformer = MTF(image_size)
 
     # Split up the image generation into smaller batches to handle

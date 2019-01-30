@@ -20,6 +20,8 @@ from keras.callbacks import LearningRateScheduler
 from step_decay import step_decay
 from learning_rate_tracker import LearningRateTracker
 from weighing_subjects import weigh_subjects
+from normalizing_data import create_min_max_scalers, normalize
+from sklearn.externals import joblib
 
 
 # Define hyperparameters
@@ -39,6 +41,18 @@ all_subject_data = drop_some_subjects(all_subject_data)
 print("Splitting the data")
 np.random.seed(131313)  # Set a seed so random splits are the same when this script is run multiple times
 train_data, cv_data, test_data = get_data_split_up(all_subject_data, labels)
+
+print("Normalizing data")
+scalers = create_min_max_scalers(train_data)
+train_data = normalize(train_data, scalers)
+cv_data = normalize(cv_data, scalers)
+
+print("Saving MinMaxScalers")
+# The same MinMaxScalers must be used when the model is used on the test set
+extension = ".joblib"
+for feature, scaler in scalers.items():
+    filename = feature + extension
+    joblib.dump(scaler, filename)
 
 print("Calculating weights for each patient")
 subject_weights = weigh_subjects(train_data)
