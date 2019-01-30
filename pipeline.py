@@ -13,7 +13,6 @@ from keras.optimizers import SGD
 from keras.metrics import binary_accuracy
 from keras.losses import binary_crossentropy
 from dropping_subjects import drop_some_subjects
-from filling_in_data import fill_in_data
 from splitting_data import get_data_split_up
 from labels_dictionary import labels
 from keras.callbacks import LearningRateScheduler
@@ -56,11 +55,6 @@ for feature, scaler in scalers.items():
 
 print("Calculating weights for each patient")
 subject_weights = weigh_subjects(train_data)
-
-print("Filling in missing values")
-train_data = fill_in_data(train_data)
-cv_data = fill_in_data(cv_data)
-test_data = fill_in_data(test_data)
 
 print("Creating the model")
 model = create_densenet(image_size=compound_image_size, number_of_channels=number_of_features*3)
