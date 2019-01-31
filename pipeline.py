@@ -57,7 +57,7 @@ for feature, scaler in scalers.items():
 print("Calculating class and subject weights")
 sklearn_class_weights = compute_class_weight('balanced', [0, 1], list(labels.values()))
 class_weights = {0: sklearn_class_weights[0], 1: sklearn_class_weights[1]}
-subject_weights = weigh_subjects(train_data)
+subject_weights = weigh_subjects(train_data, labels)
 
 print("Creating the model")
 model = create_densenet(image_size=compound_image_size, number_of_channels=number_of_features*3)
