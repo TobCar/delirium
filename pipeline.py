@@ -55,7 +55,8 @@ for feature, scaler in scalers.items():
     joblib.dump(scaler, filename)
 
 print("Calculating class and subject weights")
-sklearn_class_weights = compute_class_weight('balanced', [0, 1], list(labels.values()))
+labels_to_balance = [labels[subject_number] for subject_number in train_data.keys()]
+sklearn_class_weights = compute_class_weight('balanced', [0, 1], labels_to_balance)
 class_weights = {0: sklearn_class_weights[0], 1: sklearn_class_weights[1]}
 subject_weights = weigh_subjects(train_data, labels)
 
