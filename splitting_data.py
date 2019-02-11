@@ -19,35 +19,50 @@ def get_subject_numbers(df):
     return subject_numbers
 
 
-def split_subject_numbers(subject_numbers):
+def split_subject_numbers(subject_numbers, must_go_in_training):
     """
     :param subject_numbers: Subject numbers for the subjects in df.
+    :param must_go_in_training: List of subject numbers that must go in the training set
     :return: Three arrays of subject numbers meant to be used for the train set, the cv set, and the test set.
     """
     train_set_percentage = 0.6
     cv_set_percentage = 0.2
 
+    n_for_training = math.ceil(len(subject_numbers)*train_set_percentage)
+    n_for_cv = math.ceil(len(subject_numbers) * cv_set_percentage)
+
+    # Start by assigning the mandatory numbers
+    train_set_subject_numbers = []
+    for must_go in must_go_in_training:
+        if must_go in subject_numbers:
+            train_set_subject_numbers.append(must_go)
+            subject_numbers.remove(must_go)  # Prevent adding it twice
+            n_for_training -= 1
+
     # Assign the subjects to the sets at random, following the distribution from the percentages above
     shuffled_subject_numbers = np.random.permutation(subject_numbers).tolist()
-    last_train_set_index = math.ceil(len(shuffled_subject_numbers)*train_set_percentage)
-    last_cv_set_index = last_train_set_index + math.ceil(len(shuffled_subject_numbers) * cv_set_percentage)
+    last_train_set_index = n_for_training
+    last_cv_set_index = last_train_set_index + n_for_cv
 
-    train_set_subject_numbers = shuffled_subject_numbers[:last_train_set_index]
+    train_set_subject_numbers += shuffled_subject_numbers[:last_train_set_index]
     cv_set_subject_numbers = shuffled_subject_numbers[last_train_set_index:last_cv_set_index]
     test_set_subject_numbers = shuffled_subject_numbers[last_cv_set_index:]
 
     return train_set_subject_numbers, cv_set_subject_numbers, test_set_subject_numbers
 
 
-def assign_subject_numbers_to_splits(delirious_subject_numbers, non_delirious_subject_numbers):
+def assign_subject_numbers_to_splits(delirious_subject_numbers, non_delirious_subject_numbers, must_go_in_training):
     """
     :param delirious_subject_numbers: Array of subject numbers of all patients with delirium.
     :param non_delirious_subject_numbers: Array of subject numbers of all patients without delirium.
+    :param must_go_in_training: List of subject numbers that must go in the training set
     :return: Array of the subject numbers that belong in each of the train, cv, and test sets.
              The distribution of delirious and non-delirious patients is the same in all sets.
     """
-    train_subject_nums, cv_subject_nums, test_subject_nums = split_subject_numbers(delirious_subject_numbers)
-    train_subject_nums2, cv_subject_nums2, test_subject_nums2 = split_subject_numbers(non_delirious_subject_numbers)
+    train_subject_nums, cv_subject_nums, test_subject_nums = split_subject_numbers(delirious_subject_numbers,
+                                                                                   must_go_in_training)
+    train_subject_nums2, cv_subject_nums2, test_subject_nums2 = split_subject_numbers(non_delirious_subject_numbers,
+                                                                                      must_go_in_training)
 
     # Interleaves to prevent getting stuck in local optima from only seeing one type of subject for half the epoch.
     train_subject_nums = interleave(train_subject_nums, train_subject_nums2)
@@ -122,11 +137,12 @@ def get_data_for_splits(df, train_subject_nums, cv_subject_nums, test_subject_nu
     return train_data, cv_data, test_data
 
 
-def get_data_split_up(all_subject_data, labels):
+def get_data_split_up(all_subject_data, labels, must_go_in_training):
     """
     Splits up the subjects into train, cv, and test sets.
     :param all_subject_data: Data frame
     :param labels: Dictionary. Key: Integer. Values: Integer.
+    :param must_go_in_training: List of subject numbers that must go in the training set
     :return: Three dictionaries (training, cv, testing). The keys are subject numbers and values are data frames.
     """
     # Identify what subjects have delirium
@@ -142,7 +158,8 @@ def get_data_split_up(all_subject_data, labels):
 
     # Split up the patients into train/cv/test sets as subject numbers first, then get the respective data
     train_subject_nums, cv_subject_nums, test_subject_nums = assign_subject_numbers_to_splits(positive_subject_numbers,
-                                                                                              negative_subject_numbers)
+                                                                                              negative_subject_numbers,
+                                                                                              must_go_in_training)
     train_data, cv_data, test_data = get_data_for_splits(all_subject_data,
                                                          train_subject_nums,
                                                          cv_subject_nums,

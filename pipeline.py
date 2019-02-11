@@ -19,7 +19,7 @@ from keras.callbacks import LearningRateScheduler
 from step_decay import step_decay
 from learning_rate_tracker import LearningRateTracker
 from weighing_subjects import weigh_subjects
-from normalizing_data import create_min_max_scalers, normalize
+from normalizing_data import create_min_max_scalers, normalize, identify_extreme_subjects, validate_min_max_scalers
 from sklearn.externals import joblib
 from sklearn.utils.class_weight import compute_class_weight
 
@@ -30,7 +30,7 @@ observation_size = compound_image_size
 epochs = 50
 number_of_features = 4
 batch_size = 32
-initial_learning_rate = 0.1
+initial_learning_rate = 0.002
 
 print("Reading in the data")
 all_subject_data = pd.read_csv("confocal_all_patient_phys_data.txt", sep="\t")
@@ -39,11 +39,13 @@ print("Dropping some patients")
 all_subject_data = drop_some_subjects(all_subject_data)
 
 print("Splitting the data")
-np.random.seed(131313)  # Set a seed so random splits are the same when this script is run multiple times
-train_data, cv_data, test_data = get_data_split_up(all_subject_data, labels)
+np.random.seed(7777777)  # Set a seed so random splits are the same when this script is run multiple times
+must_go_in_training = identify_extreme_subjects(all_subject_data)
+train_data, cv_data, test_data = get_data_split_up(all_subject_data, labels, must_go_in_training)
 
 print("Normalizing data")
 scalers = create_min_max_scalers(train_data)
+validate_min_max_scalers(scalers, cv_data, test_data)
 train_data = normalize(train_data, scalers)
 cv_data = normalize(cv_data, scalers)
 

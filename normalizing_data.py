@@ -6,10 +6,43 @@ import numpy as np
 from sklearn.preprocessing import MinMaxScaler
 
 
+def validate_min_max_scalers(scalers, cv_data, test_data):
+    """
+    GASF-GADF-MTF compound images only work if the values are normalized. If the CV or test set has more extreme values
+    than the training set then normalization will break the compound images in those sets. It is not ideal but the
+    subjects must be assigned to the training set such that the MinMaxScalers created for it span all possible
+    values the CV and test set will take on. This function asserts the subjects have been assigned to the training
+    set accordingly.
+
+    :param scalers: Dictionary. Key: String, feature to normalize. Value: MinMaxScaler.
+    :param cv_data: Dictionary. Key: Integer, subject number. Value: Data frame of the data from the subject.
+    :param test_data: Dictionary. Key: Integer, subject number. Value: Data frame of the data from the subject.
+    """
+    cv_scalers = create_min_max_scalers(cv_data)
+    test_scalers = create_min_max_scalers(test_data)
+
+    assert (scalers["HR"].data_max_ >= cv_scalers["HR"].data_max_)
+    assert (scalers["HR"].data_max_ >= test_scalers["HR"].data_max_)
+    assert (scalers["HR"].data_min_ <= cv_scalers["HR"].data_min_)
+    assert (scalers["HR"].data_min_ <= test_scalers["HR"].data_min_)
+    assert (scalers["BtO2"].data_max_ >= cv_scalers["BtO2"].data_max_)
+    assert (scalers["BtO2"].data_max_ >= test_scalers["BtO2"].data_max_)
+    assert (scalers["BtO2"].data_min_ <= cv_scalers["BtO2"].data_min_)
+    assert (scalers["BtO2"].data_min_ <= test_scalers["BtO2"].data_min_)
+    assert (scalers["SpO2"].data_max_ >= cv_scalers["SpO2"].data_max_)
+    assert (scalers["SpO2"].data_max_ >= test_scalers["SpO2"].data_max_)
+    assert (scalers["SpO2"].data_min_ <= cv_scalers["SpO2"].data_min_)
+    assert (scalers["SpO2"].data_min_ <= test_scalers["SpO2"].data_min_)
+    assert (scalers["artMAP"].data_max_ >= cv_scalers["artMAP"].data_max_)
+    assert (scalers["artMAP"].data_max_ >= test_scalers["artMAP"].data_max_)
+    assert (scalers["artMAP"].data_min_ <= cv_scalers["artMAP"].data_min_)
+    assert (scalers["artMAP"].data_min_ <= test_scalers["artMAP"].data_min_)
+
+
 def create_min_max_scalers(train_data):
     """
     Creates the MinMaxScalers necessary to normalize the data.
-    :param train_data: Dictionary. Key: Subject number. Value: Data frame of the data from the subject.
+    :param train_data: Dictionary. Key: Integer, subject number. Value: Data frame of the data from the subject.
     :return: Dictionary. Key: String, feature to normalize. Value: MinMaxScaler that can normalize the feature.
     """
     # We could create one scaler for all the features but this approach makes it easier to use the scalers outside
@@ -37,6 +70,33 @@ def create_min_max_scalers(train_data):
     artmap_scaler.fit(all_train_artmap_data.reshape(-1, 1))
 
     return {"BtO2": btO2_scaler, "HR": hr_scaler, "SpO2": spO2_scaler, "artMAP": artmap_scaler}
+
+
+def identify_extreme_subjects(all_data):
+    """
+    Identifies the subjects with the most extreme of each feature so they can be put in the training set, ensuring
+    the normalized CV and test sets will be within the range defined by the most extreme features.
+    :param all_data: DataFrame
+    :return: Set of the subject numbers of the subjects with the most extreme features
+    """
+    def subject_number_for_max_in(all_data, col):
+        return int(all_data.loc[all_data[col] == all_data[col].max()]["subject_id"].iloc[0].lstrip("confocal_"))
+
+    def subject_number_for_min_in(all_data, col):
+        return int(all_data.loc[all_data[col] == all_data[col].min()]["subject_id"].iloc[0].lstrip("confocal_"))
+
+    high_BtO2 = subject_number_for_max_in(all_data, "BtO2")
+    high_HR = subject_number_for_max_in(all_data, "HR")
+    high_SpO2 = subject_number_for_max_in(all_data, "SpO2")
+    high_artMAP = subject_number_for_max_in(all_data, "artMAP")
+
+    low_BtO2 = subject_number_for_min_in(all_data, "BtO2")
+    low_HR = subject_number_for_min_in(all_data, "HR")
+    low_SpO2 = subject_number_for_min_in(all_data, "SpO2")
+    low_artMAP = subject_number_for_min_in(all_data, "artMAP")
+
+    # Returning a set automatically removes any duplicates there may be
+    return {high_BtO2, high_HR, high_SpO2, high_artMAP, low_BtO2, low_HR, low_SpO2, low_artMAP}
 
 
 def normalize(data, min_max_scalers):
