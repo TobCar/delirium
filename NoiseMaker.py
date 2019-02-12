@@ -1,9 +1,9 @@
 """
 @author: Shreyansh Anand
+@:param df - it takes in a dataframe and causes 10% of the values to become NaNs
 """
 
 import random
-import numpy as np
 
 
 def add_noise(df):
