@@ -74,29 +74,41 @@ def create_min_max_scalers(train_data):
 
 def identify_extreme_subjects(all_data):
     """
-    Identifies the subjects with the most extreme of each feature so they can be put in the training set, ensuring
-    the normalized CV and test sets will be within the range defined by the most extreme features.
+    Identifies the subjects with the most extreme of each feature so the observation with that point can be put in the
+    training set, ensuring the normalized CV and test sets will be within the range defined by the most extreme features.
     :param all_data: DataFrame
-    :return: Set of the subject numbers of the subjects with the most extreme features
+    :return: Dictionary. Key: Subject number of a subject with the most extreme of a feature. Value: The time of the row
+             with the most extreme of a feature for the subject.
     """
-    def subject_number_for_max_in(all_data, col):
-        return int(all_data.loc[all_data[col] == all_data[col].max()]["subject_id"].iloc[0].lstrip("confocal_"))
+    def max_row(all_data, col):
+        return all_data.loc[all_data[col] == all_data[col].max()].iloc[0]
 
-    def subject_number_for_min_in(all_data, col):
-        return int(all_data.loc[all_data[col] == all_data[col].min()]["subject_id"].iloc[0].lstrip("confocal_"))
+    def min_row(all_data, col):
+        return all_data.loc[all_data[col] == all_data[col].min()].iloc[0]
 
-    high_BtO2 = subject_number_for_max_in(all_data, "BtO2")
-    high_HR = subject_number_for_max_in(all_data, "HR")
-    high_SpO2 = subject_number_for_max_in(all_data, "SpO2")
-    high_artMAP = subject_number_for_max_in(all_data, "artMAP")
+    def get_subject_number(row):
+        return int(row["subject_id"].lstrip("confocal_"))
 
-    low_BtO2 = subject_number_for_min_in(all_data, "BtO2")
-    low_HR = subject_number_for_min_in(all_data, "HR")
-    low_SpO2 = subject_number_for_min_in(all_data, "SpO2")
-    low_artMAP = subject_number_for_min_in(all_data, "artMAP")
+    def add_to_dictionary(dictionary, row):
+        subject_number = get_subject_number(row)
+        if subject_number in dictionary:
+            dictionary[subject_number] = max(row["time"], dictionary[subject_number])  # Store the later time
+        else:
+            dictionary[subject_number] = row["time"]
 
-    # Returning a set automatically removes any duplicates there may be
-    return {high_BtO2, high_HR, high_SpO2, high_artMAP, low_BtO2, low_HR, low_SpO2, low_artMAP}
+    min_date_for_subject = {}
+
+    add_to_dictionary(min_date_for_subject, max_row(all_data, "BtO2"))
+    add_to_dictionary(min_date_for_subject, max_row(all_data, "HR"))
+    add_to_dictionary(min_date_for_subject, max_row(all_data, "SpO2"))
+    add_to_dictionary(min_date_for_subject, max_row(all_data, "artMAP"))
+
+    add_to_dictionary(min_date_for_subject, min_row(all_data, "BtO2"))
+    add_to_dictionary(min_date_for_subject, min_row(all_data, "HR"))
+    add_to_dictionary(min_date_for_subject, min_row(all_data, "SpO2"))
+    add_to_dictionary(min_date_for_subject, min_row(all_data, "artMAP"))
+
+    return min_date_for_subject
 
 
 def normalize(data, min_max_scalers):
@@ -113,6 +125,10 @@ def normalize(data, min_max_scalers):
     """
     for subject_number in data.keys():
         for feature, scaler in min_max_scalers.items():
+            # Some entries may only contain NaNs
+            if data[subject_number][feature].count() == 0:
+                continue
+
             # Normalize the feature and assign it back to the same column, ignoring NaNs
             null_index = data[subject_number][feature].isnull()
             to_transform = np.array(data[subject_number][feature].loc[~null_index].tolist()).reshape(-1, 1)

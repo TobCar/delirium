@@ -36,12 +36,11 @@ print("Reading in the data")
 all_subject_data = pd.read_csv("confocal_all_patient_phys_data.txt", sep="\t")
 
 print("Dropping some patients")
-all_subject_data = drop_some_subjects(all_subject_data)
+subject_data = drop_some_subjects(all_subject_data)
 
 print("Splitting the data")
-np.random.seed(7777777)  # Set a seed so random splits are the same when this script is run multiple times
-must_go_in_training = identify_extreme_subjects(all_subject_data)
-train_data, cv_data, test_data = get_data_split_up(all_subject_data, labels, must_go_in_training)
+min_date_for_subject = identify_extreme_subjects(subject_data)
+train_data, cv_data, test_data = get_data_split_up(subject_data, labels, min_date_for_subject, observation_size)
 
 print("Normalizing data")
 scalers = create_min_max_scalers(train_data)

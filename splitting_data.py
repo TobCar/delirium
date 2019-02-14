@@ -15,61 +15,8 @@ def get_subject_numbers(df):
     subject_ids = df["subject_id"].unique()
     subject_numbers = []
     for subject_id in subject_ids:
-        subject_numbers.append(subject_id.lstrip("confocal_"))
+        subject_numbers.append(int(subject_id.lstrip("confocal_")))
     return subject_numbers
-
-
-def split_subject_numbers(subject_numbers, must_go_in_training):
-    """
-    :param subject_numbers: Subject numbers for the subjects in df.
-    :param must_go_in_training: List of subject numbers that must go in the training set
-    :return: Three arrays of subject numbers meant to be used for the train set, the cv set, and the test set.
-    """
-    train_set_percentage = 0.6
-    cv_set_percentage = 0.2
-
-    n_for_training = math.ceil(len(subject_numbers)*train_set_percentage)
-    n_for_cv = math.ceil(len(subject_numbers) * cv_set_percentage)
-
-    # Start by assigning the mandatory numbers
-    train_set_subject_numbers = []
-    for must_go in must_go_in_training:
-        if must_go in subject_numbers:
-            train_set_subject_numbers.append(must_go)
-            subject_numbers.remove(must_go)  # Prevent adding it twice
-            n_for_training -= 1
-
-    # Assign the subjects to the sets at random, following the distribution from the percentages above
-    shuffled_subject_numbers = np.random.permutation(subject_numbers).tolist()
-    last_train_set_index = n_for_training
-    last_cv_set_index = last_train_set_index + n_for_cv
-
-    train_set_subject_numbers += shuffled_subject_numbers[:last_train_set_index]
-    cv_set_subject_numbers = shuffled_subject_numbers[last_train_set_index:last_cv_set_index]
-    test_set_subject_numbers = shuffled_subject_numbers[last_cv_set_index:]
-
-    return train_set_subject_numbers, cv_set_subject_numbers, test_set_subject_numbers
-
-
-def assign_subject_numbers_to_splits(delirious_subject_numbers, non_delirious_subject_numbers, must_go_in_training):
-    """
-    :param delirious_subject_numbers: Array of subject numbers of all patients with delirium.
-    :param non_delirious_subject_numbers: Array of subject numbers of all patients without delirium.
-    :param must_go_in_training: List of subject numbers that must go in the training set
-    :return: Array of the subject numbers that belong in each of the train, cv, and test sets.
-             The distribution of delirious and non-delirious patients is the same in all sets.
-    """
-    train_subject_nums, cv_subject_nums, test_subject_nums = split_subject_numbers(delirious_subject_numbers,
-                                                                                   must_go_in_training)
-    train_subject_nums2, cv_subject_nums2, test_subject_nums2 = split_subject_numbers(non_delirious_subject_numbers,
-                                                                                      must_go_in_training)
-
-    # Interleaves to prevent getting stuck in local optima from only seeing one type of subject for half the epoch.
-    train_subject_nums = interleave(train_subject_nums, train_subject_nums2)
-    cv_subject_nums = interleave(cv_subject_nums, cv_subject_nums2)
-    test_subject_nums = interleave(test_subject_nums, test_subject_nums2)
-
-    return train_subject_nums, cv_subject_nums, test_subject_nums
 
 
 def interleave(to_interleave, to_interleave2):
@@ -107,62 +54,105 @@ def get_subject_data(df, subject_number):
     return subject_data
 
 
-def get_data_for_splits(df, train_subject_nums, cv_subject_nums, test_subject_nums):
+def make_dictionary(data, subject_numbers):
     """
-    :param train_subject_nums: Array of the subjects that go in the train set.
-    :param cv_subject_nums: Array of the subjects that go in the cv set.
-    :param test_subject_nums: Array of the number of subjects that go in the test set.
-    :return: Dictionaries of data frames to use as the train, cv, and test set.
-             The key for the dictionary is the patient number, an integer.
-             Each subject is its own data frame because time series data is independent of other subjects.
+    :param data: Array of DataFrames
+    :param subject_numbers: Subject number for each DataFrame
+    :return: Dictionary. Key: Subject number. Value: Data
     """
-    train_data = {}
-    for subject_number in train_subject_nums:
-        subject_data = get_subject_data(df, subject_number)
-        subject_data = subject_data.reset_index(drop=True)
-        train_data[subject_number] = subject_data
-
-    cv_data = {}
-    for subject_number in cv_subject_nums:
-        subject_data = get_subject_data(df, subject_number)
-        subject_data = subject_data.reset_index(drop=True)
-        cv_data[subject_number] = subject_data
-
-    test_data = {}
-    for subject_number in test_subject_nums:
-        subject_data = get_subject_data(df, subject_number)
-        subject_data = subject_data.reset_index(drop=True)
-        test_data[subject_number] = subject_data
-
-    return train_data, cv_data, test_data
+    return dict(zip(subject_numbers, data))
 
 
-def get_data_split_up(all_subject_data, labels, must_go_in_training):
+def get_i_for_split(subject_data, subject_number, min_date_for_subject, observation_size):
+    """
+
+    :param subject_data:
+    :param subject_number:
+    :param min_date_for_subject:
+    :param observation_size:
+    :return:
+    """
+    train_set_percentage = 0.6
+    cv_set_percentage = 0.2
+    test_set_percentage = 0.2
+
+    n_for_training = math.ceil(len(subject_data) * train_set_percentage)
+    n_for_cv = math.ceil(len(subject_data) * cv_set_percentage)
+
+    if subject_number in min_date_for_subject:
+        row_with_extreme = subject_data.loc[subject_data["time"] == min_date_for_subject[subject_number]]
+        int_index_of_extreme_row = row_with_extreme.index.values.astype(int)[0]
+        min_i = int_index_of_extreme_row + 1  # + 1 because the last index when splicing is exclusive
+
+        if min_i > n_for_training:
+            n_for_training = min_i
+
+            percentage_used_for_training = n_for_training / len(subject_data)
+            percentage_left = 1 - percentage_used_for_training
+            percentage_for_cv = cv_set_percentage / (cv_set_percentage + test_set_percentage)
+
+            n_for_cv = math.ceil(len(subject_data) * percentage_left * percentage_for_cv)
+
+            if n_for_cv < observation_size:
+                n_for_training = len(subject_data)
+                n_for_cv = 0
+
+        n_for_training = max(n_for_training, min_i)
+
+    return n_for_training, n_for_cv
+
+def get_data_split_up(df, labels, min_date_for_subject, observation_size):
     """
     Splits up the subjects into train, cv, and test sets.
-    :param all_subject_data: Data frame
+    :param df: Data frame of all the subject data
     :param labels: Dictionary. Key: Integer. Values: Integer.
-    :param must_go_in_training: List of subject numbers that must go in the training set
+    :param min_date_for_subject: Dictionary. Key: Subject number of a subject with the most extreme value of a feature.
+                                 Value: The time of the row with the most extreme value for the subject.
+    :param observation_size: Integer
     :return: Three dictionaries (training, cv, testing). The keys are subject numbers and values are data frames.
     """
-    # Identify what subjects have delirium
-    positive_subject_numbers = []
-    negative_subject_numbers = []
-    for subject_number, label in labels.items():
-        if label == 1:
-            positive_subject_numbers.append(subject_number)
-        elif label == 0:
-            negative_subject_numbers.append(subject_number)
-        else:
-            raise ValueError("Expected 1 or 0. Received label: " + str(label))
+    pos_train_data = []
+    pos_cv_data = []
+    pos_test_data = []
+    pos_subject_num = []
 
-    # Split up the patients into train/cv/test sets as subject numbers first, then get the respective data
-    train_subject_nums, cv_subject_nums, test_subject_nums = assign_subject_numbers_to_splits(positive_subject_numbers,
-                                                                                              negative_subject_numbers,
-                                                                                              must_go_in_training)
-    train_data, cv_data, test_data = get_data_for_splits(all_subject_data,
-                                                         train_subject_nums,
-                                                         cv_subject_nums,
-                                                         test_subject_nums)
+    neg_train_data = []
+    neg_cv_data = []
+    neg_test_data = []
+    neg_subject_num = []
+
+    for subject_number in get_subject_numbers(df):
+        subject_data = get_subject_data(df, subject_number)
+
+        n_for_training, n_for_cv = get_i_for_split(subject_data, subject_number, min_date_for_subject, observation_size)
+
+        last_train_set_index = n_for_training
+        last_cv_set_index = last_train_set_index + n_for_cv
+
+        if labels[subject_number] == 1:
+            pos_train_data.append(subject_data[:last_train_set_index])
+            pos_cv_data.append(subject_data[last_train_set_index:last_cv_set_index])
+            pos_test_data.append(subject_data[last_cv_set_index:])
+            pos_subject_num.append(subject_number)
+        else:
+            neg_train_data.append(subject_data[:last_train_set_index])
+            neg_cv_data.append(subject_data[last_train_set_index:last_cv_set_index])
+            neg_test_data.append(subject_data[last_cv_set_index:])
+            neg_subject_num.append(subject_number)
+
+    # Interleave the data with 1 and 0 labels to make training more efficient. Ideally, the distribution between
+    # the labels would be the same in each batch.
+    train_data_list = interleave(pos_train_data, neg_train_data)
+    cv_data_list = interleave(pos_cv_data, neg_cv_data)
+    test_data_list = interleave(pos_test_data, neg_test_data)
+
+    # The same interleave process is used as for interleaving the data so the subject numbers will correspond with
+    # the values in the lists above
+    subject_numbers = interleave(pos_subject_num, neg_subject_num)
+
+    # Make a dictionary where the subject number is the key so it is easy to use it when iterating over all the data
+    train_data = make_dictionary(train_data_list, subject_numbers)
+    cv_data = make_dictionary(cv_data_list, subject_numbers)
+    test_data = make_dictionary(test_data_list, subject_numbers)
 
     return train_data, cv_data, test_data
