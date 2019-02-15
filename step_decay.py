@@ -21,5 +21,3 @@ def step_decay(epoch, lr):
     if (epoch+1) % epochs_drop == 0 and epoch != 0:
         lr *= drop
     return lr
-
-
