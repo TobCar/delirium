@@ -7,7 +7,7 @@ import numpy as np
 import warnings
 import os
 import pickle
-from densenet_14 import create_densenet
+from simple_model import create_model
 from feature_label_generation import generate_compound_image_feature_label_pairs, calculate_steps_per_epoch
 from keras.optimizers import SGD
 from keras.metrics import binary_accuracy
@@ -62,7 +62,7 @@ class_weights = {0: sklearn_class_weights[0], 1: sklearn_class_weights[1]}
 subject_weights = weigh_subjects(train_data, labels)
 
 print("Creating the model")
-model = create_densenet(image_size=compound_image_size, number_of_channels=number_of_features*3)
+model = create_model(compound_image_size, number_of_features*3)
 
 print("Compiling the model")
 model.compile(optimizer=SGD(lr=initial_learning_rate), loss=binary_crossentropy, metrics=[binary_accuracy])
