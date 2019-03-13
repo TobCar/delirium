@@ -47,10 +47,10 @@ def test_model(model, data_to_test_on, batch_size=100, compound_image_size=128, 
 
                 predictions = model.predict(images, batch_size)
                 predicted_labels = predictions >= 0.5
-                acc += np.count_nonzero(predicted_labels == batch_labels)
+                acc += count_correct(batch_labels, predicted_labels)
 
                 majority_prediction = vote(predicted_labels)
-                acc_with_voting += np.count_nonzero(majority_prediction == batch_labels)
+                acc_with_voting += count_correct(batch_labels, np.repeat(majority_prediction, len(batch_labels)))
 
                 # Used to calculate the percentage accuracy at the end
                 observations += len(batch_labels)
@@ -58,3 +58,11 @@ def test_model(model, data_to_test_on, batch_size=100, compound_image_size=128, 
             accuracy_with_voting[subject_number] = acc_with_voting / observations
 
     return accuracy, accuracy_with_voting
+
+
+def count_correct(labels, predictions):
+    correct = 0
+    for i in range(len(labels)):
+        if labels[i] == predictions[i]:
+            correct += 1
+    return correct
