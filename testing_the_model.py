@@ -2,67 +2,67 @@
 @author: Tobias Carryer
 """
 
-from feature_label_generation import generate_compound_image_feature_label_pairs, calculate_steps_per_epoch
 import numpy as np
-from voting import vote
-import warnings
+import pandas as pd
+from dropping_subjects import drop_some_subjects
+from splitting_data import get_data_split_up
+from sklearn.externals import joblib
+from normalizing_data import normalize, identify_extreme_subjects
 from labels_dictionary import labels
+from simple_model import create_model
+from feature_label_generation import generate_compound_image_feature_label_pairs, calculate_steps_per_epoch
+from keras.optimizers import SGD
+from keras.losses import binary_crossentropy
+from keras.metrics import binary_accuracy
+import warnings
 
 
-def test_model(model, data_to_test_on, batch_size=100, compound_image_size=128, observation_size=128):
-    """
-    :param model: Model to test.
-    :param data_to_test_on: Dictionary. Key: subject number. Value: Data frame.
-    :param batch_size: Batch size used during classification. Voting is done per batch so the larger the batch,
-                       the more noise can be filtered out.
-    :param compound_image_size: Must equal the value used during training (pipeline.py)
-    :param observation_size: Must equal the value used during training (pipeline.py)
-    :return: Dictionaries. Key: Subject number. Value: Float. The first dictionary is the accuracy per subject.
-             The second dictionary is the accuracy per subject when voting is used.
-    """
+compound_image_size = 128
+observation_size = compound_image_size
+number_of_features = 4
+batch_size = 32
 
-    accuracy = {}
-    accuracy_with_voting = {}
+print("Reading in the data")
+all_subject_data = pd.read_csv("confocal_all_patient_phys_data.txt", sep="\t")
 
-    for subject_number in data_to_test_on.keys():
-        data_to_classify = data_to_test_on[subject_number]
-        fake_dict_of_all_patient_data = {subject_number: data_to_classify}
+print("Dropping some patients")
+all_subject_data = drop_some_subjects(all_subject_data)
 
-        generator = generate_compound_image_feature_label_pairs(fake_dict_of_all_patient_data, labels,
-                                                                           observation_size=observation_size,
-                                                                           image_size=compound_image_size,
-                                                                           batch_size=batch_size)
+print("Splitting the data")
+np.random.seed(7777777)  # Set a seed so random splits are the same when this script is run multiple times
+must_go_in_training = identify_extreme_subjects(all_subject_data)
+train_data, cv_data, test_data = get_data_split_up(all_subject_data, labels, must_go_in_training)
 
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            batches = 0
-            total_batches = calculate_steps_per_epoch(fake_dict_of_all_patient_data, batch_size=batch_size)
-            observations = 0
-            acc = 0
-            acc_with_voting = 0
-            for images, batch_labels in generator:
-                batches += 1
-                if batches > total_batches:
-                    break  # Seen all batches, exit the generator's endless loop
+print("Normalizing data")
+scalers = {"SpO2": joblib.load("SpO2.joblib"), "HR": joblib.load("HR.joblib"), "BtO2": joblib.load("BtO2.joblib"),
+           "artMAP": joblib.load("artMAP.joblib")}
+train_data = normalize(train_data, scalers)
+cv_data = normalize(cv_data, scalers)
+test_data = normalize(test_data, scalers)
 
-                predictions = model.predict(images, batch_size)
-                predicted_labels = predictions >= 0.5
-                acc += count_correct(batch_labels, predicted_labels)
+print("Loading the model")
+model = create_model(compound_image_size, number_of_features*3)
+model.load_weights("model.h5")
 
-                majority_prediction = vote(predicted_labels)
-                acc_with_voting += count_correct(batch_labels, np.repeat(majority_prediction, len(batch_labels)))
+print("Compiling the model")
+model.compile(optimizer=SGD(), loss=binary_crossentropy, metrics=[binary_accuracy])
 
-                # Used to calculate the percentage accuracy at the end
-                observations += len(batch_labels)
-            accuracy[subject_number] = acc / observations
-            accuracy_with_voting[subject_number] = acc_with_voting / observations
+print("Testing the model")
+data_to_test_on = train_data  # Change to the data set you want to evaluate metrics for
 
-    return accuracy, accuracy_with_voting
+generator = generate_compound_image_feature_label_pairs(data_to_test_on, labels,
+                                                        observation_size=observation_size,
+                                                        image_size=compound_image_size,
+                                                        batch_size=batch_size)
+steps_per_epoch = calculate_steps_per_epoch(data_to_test_on, observation_size=observation_size, batch_size=batch_size)
 
-
-def count_correct(labels, predictions):
-    correct = 0
-    for i in range(len(labels)):
-        if labels[i] == predictions[i]:
-            correct += 1
-    return correct
+with warnings.catch_warnings():
+    # Ignore a FutureWarning from the image generation
+    # pyts/image/image.py:321: FutureWarning: Using a non-tuple sequence for multidimensional indexing is deprecated;
+    # use `arr[tuple(seq)]` instead of `arr[seq]`. In the future this will be interpreted as an array index,
+    # `arr[np.array(seq)]`, which will result either in an error or a different result.
+    # MTF[np.meshgrid(list_values[i], list_values[j])] = MTM[i, j]
+    warnings.simplefilter("ignore")
+    outputs = model.evaluate_generator(generator, steps=steps_per_epoch)
+    print(model.metrics_names[0] + " " + str(outputs[0]))
+    print(model.metrics_names[1] + " " + str(outputs[1]))
