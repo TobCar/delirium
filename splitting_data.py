@@ -4,6 +4,7 @@
 
 import numpy as np
 import math
+import random
 
 
 def get_subject_numbers(df):
@@ -19,30 +20,6 @@ def get_subject_numbers(df):
     return subject_numbers
 
 
-def interleave(to_interleave, to_interleave2):
-    """
-    If to_interleave is [1,1,1] and to_interleave2 is [2,2,2,2,2] the output of this function would be [1,2,1,2,1,2,2,2]
-
-    to_interleave comes first, that is, if the two arrays are the same length then to_interleave will make up the even
-    numbered indices and to_interleave2 would make up the odd numbered indices.
-
-    :param to_interleave: Array to interleave with to_interleave2
-    :param to_interleave2: Array to interleave with to_interleave
-    :return: The arrays interleaved with each other.
-    """
-    len_to_interleave = min(len(to_interleave), len(to_interleave2))
-    interloven = [None] * (len_to_interleave * 2)  # Create array of the right length
-
-    interloven[::2] = to_interleave[:len_to_interleave]
-    interloven[1::2] = to_interleave2[:len_to_interleave]
-
-    # Only the one with the values left will have anything left to append
-    interloven += to_interleave[len_to_interleave:]
-    interloven += to_interleave2[len_to_interleave:]
-
-    return interloven
-
-
 def get_subject_data(df, subject_number):
     """
     Subjects are identified by their subject_id, which is confocal_NUMBER
@@ -54,105 +31,114 @@ def get_subject_data(df, subject_number):
     return subject_data
 
 
-def make_dictionary(data, subject_numbers):
+def number_of_observations_per_set(observations, subject_number, min_date_for_subject):
     """
-    :param data: Array of DataFrames
-    :param subject_numbers: Subject number for each DataFrame
-    :return: Dictionary. Key: Subject number. Value: Data
+    :param observations: Array of DataFrames
+    :param subject_number: Subject number to create observations for
+    :param min_date_for_subject: Dictionary with the minimum date that must be included for subjects with extreme values
+    :return: Integer (number of entries to go in training), Integer (number of entries to go in the CV set)
     """
-    return dict(zip(subject_numbers, data))
+    train_set_percentage = 0.8  # CV set is last 20% of time series data, test set is completely separate
 
+    n_for_training = math.ceil(len(observations) * train_set_percentage)
 
-def get_i_for_split(subject_data, subject_number, min_date_for_subject, observation_size):
-    """
-
-    :param subject_data:
-    :param subject_number:
-    :param min_date_for_subject:
-    :param observation_size:
-    :return:
-    """
-    train_set_percentage = 0.6
-    cv_set_percentage = 0.2
-    test_set_percentage = 0.2
-
-    n_for_training = math.ceil(len(subject_data) * train_set_percentage)
-    n_for_cv = math.ceil(len(subject_data) * cv_set_percentage)
-
+    # Include the last observation with an extreme value if applicable
     if subject_number in min_date_for_subject:
-        row_with_extreme = subject_data.loc[subject_data["time"] == min_date_for_subject[subject_number]]
-        int_index_of_extreme_row = row_with_extreme.index.values.astype(int)[0]
-        min_i = int_index_of_extreme_row + 1  # + 1 because the last index when splicing is exclusive
+        min_i = 0
+        for i, observation in enumerate(observations):
+            if min_date_for_subject[subject_number] in observation["time"]:
+                min_i = i
 
-        if min_i > n_for_training:
-            n_for_training = min_i
+        n_for_training = max(n_for_training, min_i + 1)  # +1 to account for 0 indexing
 
-            percentage_used_for_training = n_for_training / len(subject_data)
-            percentage_left = 1 - percentage_used_for_training
-            percentage_for_cv = cv_set_percentage / (cv_set_percentage + test_set_percentage)
+    return n_for_training
 
-            n_for_cv = math.ceil(len(subject_data) * percentage_left * percentage_for_cv)
 
-            if n_for_cv < observation_size:
-                n_for_training = len(subject_data)
-                n_for_cv = 0
+def create_observations(df, subject_label, observation_size):
+    """
+    Creates an array of observations and the corresponding labels. The observations are a rolling window of the data
+    frame, that is, a subset of the data frame is copied for every observation.
+    :param df: DataFrame to split up into observations
+    :param subject_label: 1 or 0, to be repeated as each observation's label
+    :param observation_size: The size of each observation
+    :return: Array (observations), Array (labels)
+    """
+    observations = []
+    labels = []
+    for i in range(len(df)-observation_size):
+        df_observation = df.iloc[i:i + observation_size]
 
-        n_for_training = max(n_for_training, min_i)
+        # GASF-GADF compound images cannot contain NaNs so we filter them out those observations
+        has_nan = np.isnan(df_observation["BtO2"]).any() or np.isnan(df_observation["HR"]).any() or \
+                  np.isnan(df_observation["SpO2"]).any() or np.isnan(df_observation["artMAP"]).any()
 
-    return n_for_training, n_for_cv
+        if not has_nan:
+            observations.append(df_observation)
+            labels.append(subject_label)
+    return observations, labels
+
+
+def shuffle_together(data, labels):
+    """
+    Shuffles two arrays in sync so labels continue corresponding to the right data.
+    :param data: Array
+    :param labels: Array
+    :return: Returns a tuple, the data and the labels.
+    """
+    tmp = list(zip(data, labels))
+    random.shuffle(tmp)
+    data, labels = zip(*tmp)
+    return list(data), list(labels)
+
 
 def get_data_split_up(df, labels, min_date_for_subject, observation_size):
     """
     Splits up the subjects into train, cv, and test sets.
     :param df: Data frame of all the subject data
-    :param labels: Dictionary. Key: Integer. Values: Integer.
-    :param min_date_for_subject: Dictionary. Key: Subject number of a subject with the most extreme value of a feature.
-                                 Value: The time of the row with the most extreme value for the subject.
+    :param labels: Dictionary. Key: Integer, subject number. Values: Integer.
+    :param min_date_for_subject: Dictionary. Key: Integer, subject number of a subject with the most extreme value of a
+                                feature. Value: The time of the row with the most extreme value for the subject.
     :param observation_size: Integer
-    :return: Three dictionaries (training, cv, testing). The keys are subject numbers and values are data frames.
+    :return: Four tuples. Each tuple is (data, labels). The first two tuples contains 1D arrays. The next two tuples
+             contain 2D arrays where each subarray is a subject's data or labels.
     """
-    pos_train_data = []
-    pos_cv_data = []
-    pos_test_data = []
-    pos_subject_num = []
+    test_set = [27, 32, 35, 39, 43, 52]
 
-    neg_train_data = []
-    neg_cv_data = []
-    neg_test_data = []
-    neg_subject_num = []
+    train_data = []
+    cv_data = []  # 1D array for cross validation after each epoch
+    cv_data_for_evaluating = []  # 2D array to get average accuracy per subject using evaluate_generator
+    test_data = []
+
+    train_lbls = []
+    cv_lbls = []
+    cv_lbls_for_evaluating = []
+    test_lbls = []
 
     for subject_number in get_subject_numbers(df):
         subject_data = get_subject_data(df, subject_number)
+        observations, lbls = create_observations(subject_data, labels[subject_number], observation_size)
 
-        n_for_training, n_for_cv = get_i_for_split(subject_data, subject_number, min_date_for_subject, observation_size)
+        # Test set subjects are kept entirely separate
+        if subject_number in test_set:
+            test_data.append(observations)
+            test_lbls.append(lbls)
+            continue
 
-        last_train_set_index = n_for_training
-        last_cv_set_index = last_train_set_index + n_for_cv
+        # Split is usually done by a percentage of data, but it also depends on whether or not the subject has
+        # an extreme value that determines how the MinMaxScalers are trained. In that case, the extreme value
+        # has to go in the train set to prevent information leakage.
+        n_for_training = number_of_observations_per_set(observations, subject_number, min_date_for_subject)
 
-        if labels[subject_number] == 1:
-            pos_train_data.append(subject_data[:last_train_set_index])
-            pos_cv_data.append(subject_data[last_train_set_index:last_cv_set_index])
-            pos_test_data.append(subject_data[last_cv_set_index:])
-            pos_subject_num.append(subject_number)
-        else:
-            neg_train_data.append(subject_data[:last_train_set_index])
-            neg_cv_data.append(subject_data[last_train_set_index:last_cv_set_index])
-            neg_test_data.append(subject_data[last_cv_set_index:])
-            neg_subject_num.append(subject_number)
+        train_data += observations[:n_for_training]
+        cv_data += observations[n_for_training:]  # Add the array elements
+        cv_data_for_evaluating.append(observations[n_for_training:])  # Add the array itself
 
-    # Interleave the data with 1 and 0 labels to make training more efficient. Ideally, the distribution between
-    # the labels would be the same in each batch.
-    train_data_list = interleave(pos_train_data, neg_train_data)
-    cv_data_list = interleave(pos_cv_data, neg_cv_data)
-    test_data_list = interleave(pos_test_data, neg_test_data)
+        train_lbls += lbls[:n_for_training]
+        cv_lbls += lbls[n_for_training:]
+        cv_lbls_for_evaluating.append(lbls[n_for_training:])
 
-    # The same interleave process is used as for interleaving the data so the subject numbers will correspond with
-    # the values in the lists above
-    subject_numbers = interleave(pos_subject_num, neg_subject_num)
+    # Necessary for the model to learn. Otherwise, each batch only contains one subject.
+    train_data, train_lbls = shuffle_together(train_data, train_lbls)
 
-    # Make a dictionary where the subject number is the key so it is easy to use it when iterating over all the data
-    train_data = make_dictionary(train_data_list, subject_numbers)
-    cv_data = make_dictionary(cv_data_list, subject_numbers)
-    test_data = make_dictionary(test_data_list, subject_numbers)
-
-    return train_data, cv_data, test_data
+    return (train_data, train_lbls), (cv_data, cv_lbls),\
+           (cv_data_for_evaluating, cv_lbls_for_evaluating), (test_data, test_lbls)

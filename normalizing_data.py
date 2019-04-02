@@ -6,68 +6,28 @@ import numpy as np
 from sklearn.preprocessing import MinMaxScaler
 
 
-def validate_min_max_scalers(scalers, cv_data, test_data):
-    """
-    GASF-GADF-MTF compound images only work if the values are normalized. If the CV or test set has more extreme values
-    than the training set then normalization will break the compound images in those sets. It is not ideal but the
-    subjects must be assigned to the training set such that the MinMaxScalers created for it span all possible
-    values the CV and test set will take on. This function asserts the subjects have been assigned to the training
-    set accordingly.
-
-    :param scalers: Dictionary. Key: String, feature to normalize. Value: MinMaxScaler.
-    :param cv_data: Dictionary. Key: Integer, subject number. Value: Data frame of the data from the subject.
-    :param test_data: Dictionary. Key: Integer, subject number. Value: Data frame of the data from the subject.
-    """
-    cv_scalers = create_min_max_scalers(cv_data)
-    test_scalers = create_min_max_scalers(test_data)
-
-    assert (scalers["HR"].data_max_ >= cv_scalers["HR"].data_max_)
-    assert (scalers["HR"].data_max_ >= test_scalers["HR"].data_max_)
-    assert (scalers["HR"].data_min_ <= cv_scalers["HR"].data_min_)
-    assert (scalers["HR"].data_min_ <= test_scalers["HR"].data_min_)
-    assert (scalers["BtO2"].data_max_ >= cv_scalers["BtO2"].data_max_)
-    assert (scalers["BtO2"].data_max_ >= test_scalers["BtO2"].data_max_)
-    assert (scalers["BtO2"].data_min_ <= cv_scalers["BtO2"].data_min_)
-    assert (scalers["BtO2"].data_min_ <= test_scalers["BtO2"].data_min_)
-    assert (scalers["SpO2"].data_max_ >= cv_scalers["SpO2"].data_max_)
-    assert (scalers["SpO2"].data_max_ >= test_scalers["SpO2"].data_max_)
-    assert (scalers["SpO2"].data_min_ <= cv_scalers["SpO2"].data_min_)
-    assert (scalers["SpO2"].data_min_ <= test_scalers["SpO2"].data_min_)
-    assert (scalers["artMAP"].data_max_ >= cv_scalers["artMAP"].data_max_)
-    assert (scalers["artMAP"].data_max_ >= test_scalers["artMAP"].data_max_)
-    assert (scalers["artMAP"].data_min_ <= cv_scalers["artMAP"].data_min_)
-    assert (scalers["artMAP"].data_min_ <= test_scalers["artMAP"].data_min_)
-
-
-def create_min_max_scalers(train_data):
+def create_min_max_scalers(subject_data):
     """
     Creates the MinMaxScalers necessary to normalize the data.
-    :param train_data: Dictionary. Key: Integer, subject number. Value: Data frame of the data from the subject.
+    :param subject_data: DataFrame
     :return: Dictionary. Key: String, feature to normalize. Value: MinMaxScaler that can normalize the feature.
     """
     # We could create one scaler for all the features but this approach makes it easier to use the scalers outside
     # of this project if someone needs them.
-    all_train_btO2_data = np.array([])
-    all_train_hr_data = np.array([])
-    all_train_spO2_data = np.array([])
-    all_train_artmap_data = np.array([])
-
-    # Will normalize all data together regardless of what patient contributed it.
-    for data in train_data.values():
-        all_train_btO2_data = np.append(all_train_btO2_data, data["BtO2"].tolist())
-        all_train_hr_data = np.append(all_train_hr_data, data["HR"].tolist())
-        all_train_spO2_data = np.append(all_train_spO2_data, data["SpO2"].tolist())
-        all_train_artmap_data = np.append(all_train_artmap_data, data["artMAP"].tolist())
+    all_btO2_data = np.array(subject_data["BtO2"].tolist())
+    all_hr_data = np.array(subject_data["HR"].tolist())
+    all_spO2_data = np.array(subject_data["SpO2"].tolist())
+    all_artmap_data = np.array(subject_data["artMAP"].tolist())
 
     btO2_scaler = MinMaxScaler()
     hr_scaler = MinMaxScaler()
     spO2_scaler = MinMaxScaler()
     artmap_scaler = MinMaxScaler()
 
-    btO2_scaler.fit(all_train_btO2_data.reshape(-1, 1))
-    hr_scaler.fit(all_train_hr_data.reshape(-1, 1))
-    spO2_scaler.fit(all_train_spO2_data.reshape(-1, 1))
-    artmap_scaler.fit(all_train_artmap_data.reshape(-1, 1))
+    btO2_scaler.fit(all_btO2_data.reshape(-1, 1))
+    hr_scaler.fit(all_hr_data.reshape(-1, 1))
+    spO2_scaler.fit(all_spO2_data.reshape(-1, 1))
+    artmap_scaler.fit(all_artmap_data.reshape(-1, 1))
 
     return {"BtO2": btO2_scaler, "HR": hr_scaler, "SpO2": spO2_scaler, "artMAP": artmap_scaler}
 
@@ -119,19 +79,14 @@ def normalize(data, min_max_scalers):
 
     It is assumed each of the feature columns being normalized has at least one non-Nan value.
 
-    :param data: Dictionary. Key: Subject number. Value: Data frame of the data for the subject.
+    :param data: DataFrame
     :param min_max_scalers: Dictionary. Key: String, feature to scale. Value: MinMaxScaler
-    :return:
+    :return: Normalized data
     """
-    for subject_number in data.keys():
-        for feature, scaler in min_max_scalers.items():
-            # Some entries may only contain NaNs
-            if data[subject_number][feature].count() == 0:
-                continue
-
-            # Normalize the feature and assign it back to the same column, ignoring NaNs
-            null_index = data[subject_number][feature].isnull()
-            to_transform = np.array(data[subject_number][feature].loc[~null_index].tolist()).reshape(-1, 1)
-            normalized = scaler.transform(to_transform)
-            data[subject_number].loc[~null_index, feature] = normalized
+    for feature, scaler in min_max_scalers.items():
+        # Normalize the feature and assign it back to the same column, ignoring NaNs
+        null_index = data[feature].isnull()
+        to_transform = np.array(data[feature].loc[~null_index].tolist()).reshape(-1, 1)
+        normalized = scaler.transform(to_transform)
+        data.loc[~null_index, feature] = normalized
     return data

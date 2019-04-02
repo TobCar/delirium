@@ -34,7 +34,6 @@ def create_gasf_gadf_mtf_compound_images(observations, image_size=128):
 if __name__ == "__main__":
     subject_num_to_study = 4
     feature_to_study = "HR"
-    feature_to_study_full_name = "Heart Rate"
 
     # Generate a compound image and display it to the user
     all_subject_data = pd.read_csv("confocal_all_patient_phys_data.txt", sep="\t")
@@ -58,24 +57,24 @@ if __name__ == "__main__":
 
     plt.subplot(221)
     plt.imshow(gasf[0], cmap='rainbow')
-    plt.title("Gramian Angular Summation Field", fontsize=8)
+    plt.title("GASF", fontsize=8)
     plt.tick_params(axis='x', colors=(0, 0, 0, 0))
     plt.tick_params(axis='y', colors=(0, 0, 0, 0))
 
     plt.subplot(222)
     plt.imshow(gadf[0], cmap='rainbow')
-    plt.title("Gramian Angular Difference Field", fontsize=8)
+    plt.title("GADF", fontsize=8)
     plt.tick_params(axis='x', colors=(0, 0, 0, 0))
     plt.tick_params(axis='y', colors=(0, 0, 0, 0))
 
     plt.subplot(223)
     plt.imshow(mtf[0], cmap='rainbow')
-    plt.title("Markov Transition Field", fontsize=8)
+    plt.title("MTF", fontsize=8)
     plt.tick_params(axis='x', colors=(0, 0, 0, 0))
     plt.tick_params(axis='y', colors=(0, 0, 0, 0))
 
     plt.subplot(224)
     plt.plot(observation)
-    plt.title(feature_to_study_full_name, fontsize=8)
+    plt.title(feature_to_study, fontsize=8)
 
     plt.show()

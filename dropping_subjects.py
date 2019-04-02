@@ -16,4 +16,8 @@ def drop_some_subjects(df):
     df = df[df.subject_id != "confocal_21"]  # artMAP only has NaNs
     df = df[df.subject_id != "confocal_45"]  # artMAP only has NaNs
     df = df[df.subject_id != "confocal_54"]  # artMAP only has NaNs
+    df = df[df.subject_id != "confocal_49"]  # So many NaNs every observation has at least one NaN
+    df = df[df.subject_id != "confocal_46"]  # So many NaNs every observation has at least one NaN
+    df = df[df.subject_id != "confocal_30"]  # Was unable to screen, cannot be certain in the label
+    df = df[df.subject_id != "confocal_56"]  # Was unable to screen, cannot be certain in the label. Was never comatose
     return df
