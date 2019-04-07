@@ -106,13 +106,13 @@ def get_data_split_up(df, labels, min_date_for_subject, observation_size):
 
     train_data = []
     cv_data = []  # 1D array for cross validation after each epoch
-    cv_data_for_evaluating = []  # 2D array to get average accuracy per subject using evaluate_generator
-    test_data = []
+    cv_data_for_evaluating = {}  # 2D array to get average accuracy per subject using evaluate_generator
+    test_data = {}
 
     train_lbls = []
     cv_lbls = []
-    cv_lbls_for_evaluating = []
-    test_lbls = []
+    cv_lbls_for_evaluating = {}
+    test_lbls = {}
 
     for subject_number in get_subject_numbers(df):
         subject_data = get_subject_data(df, subject_number)
@@ -120,8 +120,8 @@ def get_data_split_up(df, labels, min_date_for_subject, observation_size):
 
         # Test set subjects are kept entirely separate
         if subject_number in test_set:
-            test_data.append(observations)
-            test_lbls.append(lbls)
+            test_data[subject_number] = observations
+            test_lbls[subject_number] = lbls
             continue
 
         # Split is usually done by a percentage of data, but it also depends on whether or not the subject has
@@ -131,11 +131,11 @@ def get_data_split_up(df, labels, min_date_for_subject, observation_size):
 
         train_data += observations[:n_for_training]
         cv_data += observations[n_for_training:]  # Add the array elements
-        cv_data_for_evaluating.append(observations[n_for_training:])  # Add the array itself
+        cv_data_for_evaluating[subject_number] = observations[n_for_training:]  # Add the array itself
 
         train_lbls += lbls[:n_for_training]
         cv_lbls += lbls[n_for_training:]
-        cv_lbls_for_evaluating.append(lbls[n_for_training:])
+        cv_lbls_for_evaluating[subject_number] = lbls[n_for_training:]
 
     # Necessary for the model to learn. Otherwise, each batch only contains one subject.
     train_data, train_lbls = shuffle_together(train_data, train_lbls)

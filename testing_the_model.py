@@ -48,7 +48,12 @@ data_to_test_on = test_data  # Change to the data set you want to evaluate metri
 labels_for_data = test_lbls  # Change to the labels corresponding to the data you are testing on
 
 accuracies = []
-for data, lbls in zip(data_to_test_on, labels_for_data):
+for subject_number in test_data.keys():
+    data = test_data[subject_number]
+    lbls = test_lbls[subject_number]
+
+    print("Evaluating for subject %d" % subject_number)
+    
     generator = generate_compound_image_feature_label_pairs(data, lbls,
                                                             image_size=compound_image_size,
                                                             batch_size=batch_size)
