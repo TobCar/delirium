@@ -7,6 +7,9 @@ import math
 import random
 
 
+test_set = [27, 32, 35, 39, 43, 52]
+
+
 def get_subject_numbers(df):
     """
     Get the subject numbers in the data frame.
@@ -68,7 +71,7 @@ def create_observations(df, subject_label, observation_size):
     for i in range(len(df)-observation_size):
         df_observation = df.iloc[i:i + observation_size]
 
-        # GASF-GADF compound images cannot contain NaNs so we filter them out those observations
+        # GASF-GADF-MTF compound images cannot contain NaNs so we filter them out those observations
         has_nan = np.isnan(df_observation["BtO2"]).any() or np.isnan(df_observation["HR"]).any() or \
                   np.isnan(df_observation["SpO2"]).any() or np.isnan(df_observation["artMAP"]).any()
 
@@ -102,8 +105,6 @@ def get_data_split_up(df, labels, min_date_for_subject, observation_size):
     :return: Four tuples. Each tuple is (data, labels). The first two tuples contains 1D arrays. The next two tuples
              contain 2D arrays where each subarray is a subject's data or labels.
     """
-    test_set = [27, 32, 35, 39, 43, 52]
-
     train_data = []
     cv_data = []  # 1D array for cross validation after each epoch
     cv_data_for_evaluating = {}  # 2D array to get average accuracy per subject using evaluate_generator

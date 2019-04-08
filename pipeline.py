@@ -13,7 +13,7 @@ from keras.optimizers import Adam
 from keras.metrics import binary_accuracy
 from keras.losses import binary_crossentropy
 from dropping_subjects import drop_some_subjects
-from splitting_data import get_data_split_up
+from splitting_data import get_data_split_up, test_set
 from labels_dictionary import labels
 from keras.callbacks import EarlyStopping
 from learning_rate_tracker import LearningRateTracker
@@ -36,7 +36,11 @@ print("Dropping some patients")
 subject_data = drop_some_subjects(all_subject_data)
 
 print("Normalizing data")
-scalers = create_min_max_scalers(subject_data)
+all_train_data = subject_data
+for subject_number in test_set:
+    all_train_data = all_train_data[all_train_data["subject_id"] != "confocal_%d" % subject_number]
+
+scalers = create_min_max_scalers(all_train_data)
 subject_data = normalize(subject_data, scalers)
 
 print("Splitting the data")
