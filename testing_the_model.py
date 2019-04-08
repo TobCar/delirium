@@ -48,9 +48,9 @@ data_to_test_on = test_data  # Change to the data set you want to evaluate metri
 labels_for_data = test_lbls  # Change to the labels corresponding to the data you are testing on
 
 accuracies = []
-for subject_number in test_data.keys():
-    data = test_data[subject_number]
-    lbls = test_lbls[subject_number]
+for subject_number in data_to_test_on.keys():
+    data = data_to_test_on[subject_number]
+    lbls = labels_for_data[subject_number]
 
     print("Evaluating for subject %d" % subject_number)
     
