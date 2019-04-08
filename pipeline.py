@@ -66,7 +66,7 @@ model.compile(optimizer=Adam(), loss=binary_crossentropy, metrics=[binary_accura
 
 print("Training the model")
 lrate_tracker = LearningRateTracker()
-early_stopping = EarlyStopping("val_loss", patience=10, restore_best_weights=True)
+early_stopping = EarlyStopping("val_loss", patience=5, restore_best_weights=True)
 callbacks_list = [lrate_tracker, early_stopping]
 
 training_generator = generate_compound_image_feature_label_pairs(train_data, train_lbls,
