@@ -84,12 +84,13 @@ def create_observations(df, subject_label, observation_size):
 def shuffle_together(data, labels):
     """
     Shuffles two arrays in sync so labels continue corresponding to the right data.
+    The shuffling is done with a seed so it will produce the same results every time.
     :param data: Array
     :param labels: Array
     :return: Returns a tuple, the data and the labels.
     """
     tmp = list(zip(data, labels))
-    random.shuffle(tmp)
+    random.Random(42).shuffle(tmp)
     data, labels = zip(*tmp)
     return list(data), list(labels)
 

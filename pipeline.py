@@ -7,6 +7,7 @@ import numpy as np
 import warnings
 import os
 import pickle
+import tensorflow as tf
 from simple_model import create_model
 from feature_label_generation import generate_compound_image_feature_label_pairs, calculate_steps_per_epoch
 from keras.optimizers import Adam
@@ -21,6 +22,16 @@ from normalizing_data import create_min_max_scalers, normalize, identify_extreme
 from sklearn.externals import joblib
 from sklearn.utils.class_weight import compute_class_weight
 
+# Seed for reproducibility
+os.environ['PYTHONHASHSEED'] = '0'
+np.random.seed(42)
+
+# Make TensorFlow use one thread, multiple threads are a source of unpredictability
+session_conf = tf.ConfigProto(intra_op_parallelism_threads=1, inter_op_parallelism_threads=1)
+from keras import backend as K
+tf.set_random_seed(42)
+sess = tf.Session(graph=tf.get_default_graph(), config=session_conf)
+K.set_session(sess)
 
 # Define hyperparameters
 compound_image_size = 128
