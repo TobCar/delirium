@@ -1,8 +1,9 @@
 """
-@author: Tobias Carryer
+@author: Tobias Carryer, Shreyansh Anand
 """
 
 import pandas as pd
+from confusion_matrix import confusion_matrix_creator
 from dropping_subjects import drop_some_subjects
 from splitting_data import get_data_split_up
 from sklearn.externals import joblib
@@ -47,23 +48,37 @@ print("Testing the model")
 data_to_test_on = test_data  # Change to the data set you want to evaluate metrics for
 labels_for_data = test_lbls  # Change to the labels corresponding to the data you are testing on
 
+predicted_vals = []
+final_labels = []
 accuracies = []
 for subject_number in data_to_test_on.keys():
     data = data_to_test_on[subject_number]
     lbls = labels_for_data[subject_number]
 
     print("Evaluating for subject %d" % subject_number)
-    
-    generator = generate_compound_image_feature_label_pairs(data, lbls,
-                                                            image_size=compound_image_size,
-                                                            batch_size=batch_size)
+
+    # Evaluating and predicting are thread safe, requiring their own identical_ generators
+    generator_1 = generate_compound_image_feature_label_pairs(data, lbls,
+                                                              image_size=compound_image_size,
+                                                              batch_size=batch_size)
+    generator_2 = generate_compound_image_feature_label_pairs(data, lbls,
+                                                              image_size=compound_image_size,
+                                                              batch_size=batch_size)
     steps_per_epoch = calculate_steps_per_epoch(data_to_test_on, batch_size=batch_size)
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        outputs = model.evaluate_generator(generator, steps=steps_per_epoch)
-        # print(model.metrics_names[0] + " " + str(outputs[0]))  # Uncomment to print the evaluated loss
+
+        # Accuracy
+        outputs = model.evaluate_generator(generator_1, steps=steps_per_epoch)
         print(model.metrics_names[1] + " " + str(outputs[1]))
         accuracies.append(outputs[1])
 
+        # Sensitivity and Specificity
+        predictions = model.predict_generator(generator_2, steps=steps_per_epoch)
+        rounded_predictions = int(round((sum(predictions)[0]) / len(predictions)))
+        predicted_vals.append(rounded_predictions)
+        final_labels.append(lbls[0])
+
 print("Average accuracy (per subject): " + str(sum(accuracies) / len(accuracies)))
+confusion_matrix_creator(final_labels, predicted_vals)
