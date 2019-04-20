@@ -57,7 +57,7 @@ for subject_number in data_to_test_on.keys():
 
     print("Evaluating for subject %d" % subject_number)
 
-    # Evaluating and predicting are thread safe, requiring their own identical_ generators
+    # Evaluating and predicting are thread safe, requiring their own identical generators
     generator_1 = generate_compound_image_feature_label_pairs(data, lbls,
                                                               image_size=compound_image_size,
                                                               batch_size=batch_size)
