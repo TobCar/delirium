@@ -57,24 +57,26 @@ if __name__ == "__main__":
 
     plt.subplot(221)
     plt.imshow(gasf[0], cmap='rainbow')
-    plt.title("GASF", fontsize=8)
+    plt.title("Gramian Angular Summation Field", fontsize=8)
     plt.tick_params(axis='x', colors=(0, 0, 0, 0))
     plt.tick_params(axis='y', colors=(0, 0, 0, 0))
 
     plt.subplot(222)
     plt.imshow(gadf[0], cmap='rainbow')
-    plt.title("GADF", fontsize=8)
+    plt.title("Gramian Angular Difference Field", fontsize=8)
     plt.tick_params(axis='x', colors=(0, 0, 0, 0))
     plt.tick_params(axis='y', colors=(0, 0, 0, 0))
 
     plt.subplot(223)
     plt.imshow(mtf[0], cmap='rainbow')
-    plt.title("MTF", fontsize=8)
+    plt.title("Markov Transition Field", fontsize=8)
     plt.tick_params(axis='x', colors=(0, 0, 0, 0))
     plt.tick_params(axis='y', colors=(0, 0, 0, 0))
 
     plt.subplot(224)
     plt.plot(observation)
-    plt.title(feature_to_study, fontsize=8)
+    plt.title("Heart Rate", fontsize=8)
+
+    plt.suptitle("Fields generated for a window of heart rate data")
 
     plt.show()
