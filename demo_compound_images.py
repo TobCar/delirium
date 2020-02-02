@@ -1,3 +1,7 @@
+"""
+@author: Tobias Carryer
+"""
+
 import numpy as np
 import pandas as pd
 from pyts.image import GASF, GADF, MTF
